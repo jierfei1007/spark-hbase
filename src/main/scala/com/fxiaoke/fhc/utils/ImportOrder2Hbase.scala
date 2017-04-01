@@ -42,10 +42,12 @@ object ImportOrder2Hbase {
     val sparkConf = new SparkConf().setAppName("订单信息入hbase").setMaster(runMode)
     val sparkContext = new SparkContext(sparkConf)
     val hiveContext: HiveContext = new HiveContext(sparkContext)
-//    val orderRDD = EnterpriseOrderSource.createOrderRDD(hiveContext)
-//    val inserOrderFun = insertOrders(hbaseBatchSize, propConfig)
-//    orderRDD.coalesce(3).foreachPartition(inserOrderFun)
+    val orderRDD = EnterpriseOrderSource.createOrderRDD(hiveContext)
+//    println("order rdd count ="+orderRDD.count())
+    val inserOrderFun = insertOrders(hbaseBatchSize, propConfig)
+    orderRDD.coalesce(3).foreachPartition(inserOrderFun)
     val refundRDD = EnterpriseOrderSource.createRefundRDD(hiveContext)
+//    println("refundRDD count is"+refundRDD.count())
     val insertRefundFun = insertRefunds(hbaseBatchSize, propConfig)
     refundRDD.coalesce(1).foreachPartition(insertRefundFun)
     sparkContext.stop()
@@ -92,7 +94,7 @@ object ImportOrder2Hbase {
         hbaseConnAndTable._2.put(putList)
       }
     } catch {
-      case e => {
+      case e:Throwable => {
         println("insert orders into hbase table:'ENTERPRISE_ORDERS' error" + e.getMessage)
       }
     } finally {
@@ -110,22 +112,22 @@ object ImportOrder2Hbase {
   def insertRefunds(hbaseBatchSize: Int = 2000, propConfig: java.util.Map[String, String]) = (iterator: Iterator[Refunds]) => {
     val hbaseConnAndTable = HbaseCommonUtils.getHbaseTable(propConfig, "ENTERPRISE_REFUNDS", Array("refund"))
     val family_bytes = "refund".getBytes
-    val refundableAmount = "refundableAmount".getBytes
+    val refundAmount = "refundAmount".getBytes
     val orderId = "orderId".getBytes
     val refundCreateTime = "refundCreateTime".getBytes
     val productId = "productId".getBytes
-    val subRefundableTotalAmount = "subRefundableTotalAmount".getBytes
+    val subRefundAmount = "subRefundAmount".getBytes
     val putList = new util.ArrayList[Put]()
     var size = 0
     try {
       for (row <- iterator) {
         val row_key = row.getEid + "-" + row.getRefundId + "-" + row.getSubRefundId
         val p = new Put(row_key.getBytes)
-        p.addColumn(family_bytes, refundableAmount, Bytes.toBytes(row.getRefundableAmount))
+        p.addColumn(family_bytes, refundAmount, Bytes.toBytes(row.getRefundAmount))
         p.addColumn(family_bytes, orderId, Bytes.toBytes(row.getOrderId))
         p.addColumn(family_bytes, refundCreateTime, Bytes.toBytes(row.getRefundCreateTime))
         p.addColumn(family_bytes, productId, Bytes.toBytes(row.getProductId))
-        p.addColumn(family_bytes, subRefundableTotalAmount, Bytes.toBytes(row.getSubRefundableTotalAmount))
+        p.addColumn(family_bytes, subRefundAmount, Bytes.toBytes(row.getSubRefundAmount))
         putList.add(p)
         size = size + 1
         //提交
@@ -139,7 +141,7 @@ object ImportOrder2Hbase {
         hbaseConnAndTable._2.put(putList)
       }
     } catch {
-      case e => {
+      case e:Throwable => {
         println("insert refund into hbase table:'ENTERPRISE_REFUNDS' error" + e.getMessage)
       }
     } finally {

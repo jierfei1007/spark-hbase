@@ -117,4 +117,34 @@ class CoreTests extends TestCase{
     val a=null
     println(a.asInstanceOf[AnyRef])
   }
+
+  def testList2(): Unit ={
+    val a=List(1,2,3,4)
+    val b=a .::(5)
+    a.foreach(println(_))
+    b.foreach(println(_))
+
+  }
+
+  def testdouble(): Unit ={
+    val b=3500.00d
+    println((b-3499.99)>0)
+
+    println((3499.99+0.01)==b)
+  }
+
+  def testBytes(): Unit ={
+//    Bytes
+//    println(Bytes.toDouble(Bytes.toBytesBinary("@\\xE0\\x91\\x18\\xA3\\xD7\\x0A=")))
+    println(Bytes.toDouble(Bytes.toBytesBinary("@\\x9F@\\x00\\x00\\x00\\x00\\x00")))
+  }
+
+  def testWhile(): Unit ={
+    val list= ListBuffer()
+    val option=new Some(list)
+//    println(option.isEmpty)
+    val l=option.get
+    println(l.size)
+
+  }
 }

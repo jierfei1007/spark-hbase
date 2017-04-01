@@ -4,9 +4,11 @@ import java.util
 import java.util.UUID
 
 import com.fxiaoke.fhc.bean._
-import com.fxiaoke.fhc.utils.{HbaseCommonUtils, Utils}
+import com.fxiaoke.fhc.utils.{HbaseCommonUtils, HdfsHelper, Utils}
 import org.apache.hadoop.hbase.TableName
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.DataFrame
 
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
@@ -21,7 +23,7 @@ object EnterpriseInfoJob {
     * 企业表主计算逻辑
     *
     * @param enterpriseSourceRDD             企业大宽表数据源
-//    * @param enterpriseTypeRDD               企业类型
+    * @param enterpriseIdBroadcast                   订单企业id
     * @param enterpriseBlackRDD              黑名单惬意
     * @param enterpriseStaticRDD             昨日的企业静态表
     * @param ibssVendorMap                   代理商企业 代理商名称关联
@@ -35,6 +37,7 @@ object EnterpriseInfoJob {
     * @return
     */
   def getEnterpriseBaseInfo(enterpriseSourceRDD: RDD[EnterpriseBean],
+                            enterpriseIdBroadcast:Broadcast[ Array[Int] ],
                             enterpriseBlackRDD: RDD[(Int, Int)],
                             enterpriseStaticRDD: RDD[EnterpriseStaticBean],
                             ibssVendorMap: Map[Int, String],
@@ -46,7 +49,7 @@ object EnterpriseInfoJob {
                             districtMap: Map[String, String],
                             agentEaMap: util.HashMap[String, Int],propConfig:util.Map[String,String],checkOrderDate:String): RDD[EnterpriseStaticBean] = {
 
-    val neweEnterpriseStaticRDD02 = enterpriseSourceRDD.coalesce(10).mapPartitions(itor => {
+    val neweEnterpriseStaticRDD02 = enterpriseSourceRDD.coalesce(40,shuffle=true).mapPartitions(itor => {
       val result = ListBuffer[Tuple2[Int,EnterpriseBean]]()
       val connection = HbaseCommonUtils.getHbaseConnection(propConfig)
       val orderTable=connection.getTable(TableName.valueOf("ENTERPRISE_ORDERS"))
@@ -54,10 +57,14 @@ object EnterpriseInfoJob {
       while(itor.hasNext){
         val enterpriseBean=itor.next()
         val eid=enterpriseBean.getEnterpriseId
-        val ordersListBuffer=HbaseCommonUtils.scanEnterpriseOrdersByCreateDate(orderTable,eid,checkOrderDate+" "+"23:59:59")
-        val refundListBuffer=HbaseCommonUtils.scanEnterpriseOrderRefund(eid,refundTable)
-        val eType=getEnterpriseType(eid,ordersListBuffer,refundListBuffer,checkOrderDate+" "+"23:59:59")
-        enterpriseBean.setEnterpriseType(eType)
+        if(enterpriseIdBroadcast.value.contains(eid)) {
+          val ordersListBuffer = HbaseCommonUtils.scanEnterpriseOrdersByCreateDate(orderTable, eid, checkOrderDate + " " + "23:59:59")
+          val refundListBuffer = HbaseCommonUtils.scanEnterpriseOrderRefund(eid, refundTable)
+          val eType = getEnterpriseType(eid, ordersListBuffer, refundListBuffer, checkOrderDate + " " + "23:59:59")
+          enterpriseBean.setEnterpriseType(eType)
+        }else {
+          enterpriseBean.setEnterpriseType(Properties.MF)
+        }
         result.+=((enterpriseBean.getEnterpriseId, enterpriseBean))
       }
       orderTable.close()
@@ -374,60 +381,59 @@ object EnterpriseInfoJob {
             enterpriseStaticBeanArray += enterpriseStaticBean
           }
         }
-
         /**
           * 返回enterpriseStatic集合：应为字段信息变化会导致新增一条数据，所以需要返回集合，用来保存旧数据和新增的数据
           */
         enterpriseStaticBeanArray
       }).filter(enterpriseStaticBean => enterpriseStaticBean != null)
 
-    val resultEnterpriseStaticRDD = neweEnterpriseStaticRDD.map(enterpriseStaticBean => {
-      enterpriseStaticBean.getSkEnterpriseID + "\t" +
-        enterpriseStaticBean.getEnterpriseID + "\t" +
-        enterpriseStaticBean.getEnterpriseName + "\t" +
-        enterpriseStaticBean.getEnterpriseShortName + "\t" +
-        enterpriseStaticBean.getEnterpriseAccount + "\t" +
-        enterpriseStaticBean.getVendorID + "\t" +
-        enterpriseStaticBean.getVendorName + "\t" +
-        enterpriseStaticBean.getCreatorID + "\t" +
-        enterpriseStaticBean.getKeyContactName + "\t" +
-        enterpriseStaticBean.getKeyContactPhone + "\t" +
-        enterpriseStaticBean.getKeyContactEmail + "\t" +
-        enterpriseStaticBean.getContactName + "\t" +
-        enterpriseStaticBean.getContactPhone + "\t" +
-        enterpriseStaticBean.getContactEmail + "\t" +
-        enterpriseStaticBean.getContactIM + "\t" +
-        enterpriseStaticBean.getEnterpriseAddress + "\t" +
-        enterpriseStaticBean.getEnterpriseRemark + "\t" +
-        enterpriseStaticBean.getAccountTotalAmount + "\t" +
-        enterpriseStaticBean.getRunStatus + "\t" +
-        enterpriseStaticBean.getRunStatusDesc + "\t" +
-        enterpriseStaticBean.getIndustry1 + "\t" +
-        enterpriseStaticBean.getIndustry2 + "\t" +
-        enterpriseStaticBean.getIndustry3 + "\t" +
-        enterpriseStaticBean.getIndustry1Value + "\t" +
-        enterpriseStaticBean.getIndustry2Value + "\t" +
-        enterpriseStaticBean.getIndustry3Value + "\t" +
-        enterpriseStaticBean.getEnterpriseProvince + "\t" +
-        enterpriseStaticBean.getEnterpriseProvinceDesc + "\t" +
-        enterpriseStaticBean.getCity + "\t" +
-        enterpriseStaticBean.getEnterpriseSource + "\t" +
-        enterpriseStaticBean.getEnterpriseSourceDesc + "\t" +
-        enterpriseStaticBean.getRegisteTime + "\t" +
-        enterpriseStaticBean.getAppStartTime + "\t" +
-        enterpriseStaticBean.getEnterpriseGroup + "\t" +
-        enterpriseStaticBean.getEnterpriseGroupDesc + "\t" +
-        enterpriseStaticBean.getCompanyScale + "\t" +
-        enterpriseStaticBean.getCompanyScaleDesc + "\t" +
-        enterpriseStaticBean.getEnterpriseType + "\t" +
-        enterpriseStaticBean.getEnterpriseTypeDesc + "\t" +
-        enterpriseStaticBean.getSkVersion + "\t" +
-        enterpriseStaticBean.getSkBeginDate + "\t" +
-        enterpriseStaticBean.getSkEndDate + "\t" +
-        enterpriseStaticBean.getEnterpriseScale
-    })
+//    val resultEnterpriseStaticRDD = neweEnterpriseStaticRDD.map(enterpriseStaticBean => {
+//      enterpriseStaticBean.getSkEnterpriseID + "\t" +
+//        enterpriseStaticBean.getEnterpriseID + "\t" +
+//        enterpriseStaticBean.getEnterpriseName + "\t" +
+//        enterpriseStaticBean.getEnterpriseShortName + "\t" +
+//        enterpriseStaticBean.getEnterpriseAccount + "\t" +
+//        enterpriseStaticBean.getVendorID + "\t" +
+//        enterpriseStaticBean.getVendorName + "\t" +
+//        enterpriseStaticBean.getCreatorID + "\t" +
+//        enterpriseStaticBean.getKeyContactName + "\t" +
+//        enterpriseStaticBean.getKeyContactPhone + "\t" +
+//        enterpriseStaticBean.getKeyContactEmail + "\t" +
+//        enterpriseStaticBean.getContactName + "\t" +
+//        enterpriseStaticBean.getContactPhone + "\t" +
+//        enterpriseStaticBean.getContactEmail + "\t" +
+//        enterpriseStaticBean.getContactIM + "\t" +
+//        enterpriseStaticBean.getEnterpriseAddress + "\t" +
+//        enterpriseStaticBean.getEnterpriseRemark + "\t" +
+//        enterpriseStaticBean.getAccountTotalAmount + "\t" +
+//        enterpriseStaticBean.getRunStatus + "\t" +
+//        enterpriseStaticBean.getRunStatusDesc + "\t" +
+//        enterpriseStaticBean.getIndustry1 + "\t" +
+//        enterpriseStaticBean.getIndustry2 + "\t" +
+//        enterpriseStaticBean.getIndustry3 + "\t" +
+//        enterpriseStaticBean.getIndustry1Value + "\t" +
+//        enterpriseStaticBean.getIndustry2Value + "\t" +
+//        enterpriseStaticBean.getIndustry3Value + "\t" +
+//        enterpriseStaticBean.getEnterpriseProvince + "\t" +
+//        enterpriseStaticBean.getEnterpriseProvinceDesc + "\t" +
+//        enterpriseStaticBean.getCity + "\t" +
+//        enterpriseStaticBean.getEnterpriseSource + "\t" +
+//        enterpriseStaticBean.getEnterpriseSourceDesc + "\t" +
+//        enterpriseStaticBean.getRegisteTime + "\t" +
+//        enterpriseStaticBean.getAppStartTime + "\t" +
+//        enterpriseStaticBean.getEnterpriseGroup + "\t" +
+//        enterpriseStaticBean.getEnterpriseGroupDesc + "\t" +
+//        enterpriseStaticBean.getCompanyScale + "\t" +
+//        enterpriseStaticBean.getCompanyScaleDesc + "\t" +
+//        enterpriseStaticBean.getEnterpriseType + "\t" +
+//        enterpriseStaticBean.getEnterpriseTypeDesc + "\t" +
+//        enterpriseStaticBean.getSkVersion + "\t" +
+//        enterpriseStaticBean.getSkBeginDate + "\t" +
+//        enterpriseStaticBean.getSkEndDate + "\t" +
+//        enterpriseStaticBean.getEnterpriseScale
+//    })
 //    Hdfs.commonSaveText(resultEnterpriseStaticRDD, enterpriseStaticDailyOutPutPath, true)
-//    Hdfs.commonSaveText(resultEnterpriseStaticRDD, enterpriseStaticOutPutPath, true)
+//    HdfsHelper.commonSaveText(resultEnterpriseStaticRDD, "/facishare-data/fscloud/dw_dim/dim_pub_enterprise_info_static_parquet", true)
 
     neweEnterpriseStaticRDD
   }
@@ -444,8 +450,8 @@ object EnterpriseInfoJob {
     * @return
     */
   def getEnterpriseType(eid:Int,orders:Option[ListBuffer[Orders]],refundsOption:Option[ListBuffer[Refunds]],runDate:String):Int={
-    if(!orders.isDefined){
-      println("error enterprise id " + eid + "order is undefined please check")
+    if(orders.isEmpty){
+        println("error enterprise id " + eid + "order is undefined please check")
     }else{
       val ordersList=orders.get
       //订单数为0则为免费
@@ -453,7 +459,7 @@ object EnterpriseInfoJob {
         Properties.MF
       }else{
         //判断去除退订单后的订单数和订单中是否只有小微版本订单
-        val (orderNums,flag)=orderNumsAndOnlyHaveSmallVersion(ordersList,refundsOption)
+        val (orderNums,flag) = orderNumsAndOnlyHaveSmallVersion(ordersList,refundsOption)
         if(orderNums==0 || flag){
           Properties.MF
         }else{
@@ -546,6 +552,7 @@ object EnterpriseInfoJob {
     var upFee = 0.0d
     var isPast = true
     val orderIdMap = mutable.HashMap[(Int,Int),Orders]()
+
     orders.filter(order=>{
       order!=null && paidPid.contains(order.getProductId)
     }).foreach(order=>{
@@ -560,10 +567,10 @@ object EnterpriseInfoJob {
       }).foreach(refund => {
         val o = orderIdMap.get((refund.getOrderId, refund.getProductId))
         //如果订单金额小于等于退款单金额则从有效订单中去掉，（小于几乎不可能吧）
-        if (o.get.getPurchaseAmount <= refund.getSubRefundableTotalAmount) {
+        if (o.get.getPurchaseAmount <= refund.getSubRefundAmount) {
           orderIdMap.remove((refund.getOrderId, refund.getProductId))
         }
-        upFee += refund.getSubRefundableTotalAmount
+        upFee += refund.getSubRefundAmount
       })
     }
     import scala.util.control.Breaks._

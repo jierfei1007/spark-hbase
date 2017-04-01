@@ -107,4 +107,19 @@ public class Orders {
   public void setProductEndTime(String productEndTime) {
     this.productEndTime = productEndTime;
   }
+
+  @Override
+  public String toString() {
+    return "Orders{" +
+            "eid=" + eid +
+            ", orderId=" + orderId +
+            ", subOrderId=" + subOrderId +
+            ", orderCreateTime='" + orderCreateTime + '\'' +
+            ", totalAmount=" + totalAmount +
+            ", productId=" + productId +
+            ", purchaseAmount=" + purchaseAmount +
+            ", subOrderCreateTime='" + subOrderCreateTime + '\'' +
+            ", productEndTime='" + productEndTime + '\'' +
+            '}';
+  }
 }

@@ -3,12 +3,14 @@ package com.fxiaoke.fhc.main
 import java.text.SimpleDateFormat
 import java.util.Calendar
 
+import com.fxiaoke.fhc.bean.EnterpriseStaticBean
 import com.fxiaoke.fhc.context.HuijuContext
 import com.fxiaoke.fhc.job.EnterpriseInfoJob
 import com.fxiaoke.fhc.log.PrintLog
 import com.fxiaoke.fhc.source._
-import com.fxiaoke.fhc.utils.Config
+import com.fxiaoke.fhc.utils.{Config, HdfsHelper}
 import org.apache.commons.lang.StringUtils
+import org.apache.spark.rdd.RDD
 
 /**
   * Created by jief on 2017/3/21.
@@ -83,12 +85,13 @@ object RefreshEnterpriseStaticMain {
       */
     val huijuContext = new HuijuContext(runEnvironment, "新企业维度表-静态表：dim_pub_enterprise_info_static ", runMode)
     val sparkContext = huijuContext.sparkContext
-
     /**
       * 从企业创建HDFS日志文件获取源企业信息
       */
     val enterpriseSourceRDD = SourceEnterpriseSource.getSourceEnterpriseRDD(sparkContext, enterpriseSourcePath)
-
+    //获取历史所有下单企业
+    val enterpriseIdRDD=EnterpriseOrderSource.createEidRDD(huijuContext.hiveContext,sf.format(runDate))
+    val broadcastEidList=sparkContext.broadcast(enterpriseIdRDD.collect())
     //    /**
     //      * 从hive表获取企业类型DF
     //      */
@@ -136,16 +139,17 @@ object RefreshEnterpriseStaticMain {
     /**
       * 主逻辑计算
       */
-    EnterpriseInfoJob.getEnterpriseBaseInfo(enterpriseSourceRDD, enterpriseBlackRDD, ydayEnterpriseStaticRDD, ibssVendorMap,
+    val enterpriseRDD:RDD[EnterpriseStaticBean]=EnterpriseInfoJob.getEnterpriseBaseInfo(enterpriseSourceRDD,broadcastEidList,enterpriseBlackRDD, ydayEnterpriseStaticRDD, ibssVendorMap,
       sf3.format(runDate), sf3.format(ydayDate), enterpriseStaticDailyOutPutPath, enterpriseStaticOutPutPath,
       industryMap, districtMap, agentEaMap,propConfig,sf.format(runDate))
-
-    val loadEnterpriseStaticDailyDailySql = "alter table " + enterpriseStaticDailyTableName + " add if not exists " +
-      "partition(dt='" + sf3.format(runDate) + "') " +
-      "location '" + enterpriseStaticDailyOutPutPath + "'"
-    println("loadEnterpriseStaticDailyDailySql : " + loadEnterpriseStaticDailyDailySql)
-    huijuContext.hiveContext.sql(loadEnterpriseStaticDailyDailySql)
-
+    import huijuContext.hiveContext.implicits._
+    val enterpriseDataFrame=huijuContext.sqlContext.createDataFrame(enterpriseRDD,classOf[EnterpriseStaticBean])
+    HdfsHelper.saveAsParquet(enterpriseDataFrame,"/facishare-data/fscloud/dw_dim/dim_pub_enterprise_info_static_parquet",3)
+//    val loadEnterpriseStaticDailyDailySql = "alter table " + enterpriseStaticDailyTableName + " add if not exists " +
+//      "partition(dt='" + sf3.format(runDate) + "') " +
+//      "location '" + enterpriseStaticDailyOutPutPath + "'"
+//    println("loadEnterpriseStaticDailyDailySql : " + loadEnterpriseStaticDailyDailySql)
+//    huijuContext.hiveContext.sql(loadEnterpriseStaticDailyDailySql)
     huijuContext.stop()
   }
 }

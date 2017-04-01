@@ -11,29 +11,29 @@ public class Refunds {
   private Integer eid;
   private Integer refundId;
   private Integer subRefundId;
-  private Double refundableAmount;
+  private Double refundAmount;
   private Integer orderId;
   private String refundCreateTime;
   private Integer productId;
-  private Double subRefundableTotalAmount;
+  private Double subRefundAmount;
 
   public Refunds(){}
   public Refunds(Integer eid,
                  Integer refundId,
                  Integer subRefundId,
-                 Double refundableAmount,
+                 Double refundAmount,
                  Integer orderId,
                  String refundCreateTime,
                  Integer productId,
-                 Double subRefundableTotalAmount){
+                 Double subRefundAmount){
     this.eid=eid;
     this.refundId=refundId;
     this.subRefundId=subRefundId;
-    this.refundableAmount=refundableAmount;
+    this.refundAmount=refundAmount;
     this.orderId=orderId;
     this.refundCreateTime=refundCreateTime;
     this.productId=productId;
-    this.subRefundableTotalAmount=subRefundableTotalAmount;
+    this.subRefundAmount=subRefundAmount;
   }
   public Integer getEid() {
     return eid;
@@ -59,12 +59,11 @@ public class Refunds {
     this.subRefundId = subRefundId;
   }
 
-  public Double getRefundableAmount() {
-    return refundableAmount;
+  public Double getRefundAmount() {
+    return refundAmount;
   }
-
-  public void setRefundableAmount(Double refundableAmount) {
-    this.refundableAmount = refundableAmount;
+  public void setRefundAmount(Double refundAmount) {
+    this.refundAmount = refundAmount;
   }
 
   public Integer getOrderId() {
@@ -91,11 +90,25 @@ public class Refunds {
     this.productId = productId;
   }
 
-  public Double getSubRefundableTotalAmount() {
-    return subRefundableTotalAmount;
+  public Double getSubRefundAmount() {
+    return subRefundAmount;
   }
 
-  public void setSubRefundableTotalAmount(Double subRefundableTotalAmount) {
-    this.subRefundableTotalAmount = subRefundableTotalAmount;
+  public void setSubRefundAmount(Double subRefundAmount) {
+    this.subRefundAmount = subRefundAmount;
+  }
+
+  @Override
+  public String toString() {
+    return "Refunds{" +
+            "eid=" + eid +
+            ", refundId=" + refundId +
+            ", subRefundId=" + subRefundId +
+            ", refundAmount=" + refundAmount +
+            ", orderId=" + orderId +
+            ", refundCreateTime='" + refundCreateTime + '\'' +
+            ", productId=" + productId +
+            ", subRefundAmount=" + subRefundAmount +
+            '}';
   }
 }

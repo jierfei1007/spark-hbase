@@ -117,6 +117,13 @@ object HbaseCommonUtils {
         order.setPurchaseAmount(Bytes.toDouble(cell4.getValueArray))
         order.setSubOrderCreateTime(Bytes.toString(cell5.getValueArray))
         order.setProductEndTime(Bytes.toString(cell6.getValueArray))
+        val rowkey=Bytes.toString(result.getRow).split("_")
+        val eid=rowkey(0).toInt
+        val orderId=rowkey(1).toInt
+        val subOrder=rowkey(2).toInt
+        order.setEid(eid)
+        order.setOrderId(orderId)
+        order.setSubOrderId(subOrder)
         orders += order
       }
       Some[ListBuffer[Orders]](orders)
@@ -143,25 +150,32 @@ object HbaseCommonUtils {
       scan.setFilter(rowFilter)
       val resultScanner = table.getScanner(scan)
       val family_bytes = "refund".getBytes
-      val refundableAmount = "refundableAmount".getBytes
+      val refundAmount = "refundAmount".getBytes
       val orderId = "orderId".getBytes
       val refundCreateTime = "refundCreateTime".getBytes
       val productId = "productId".getBytes
-      val subRefundableTotalAmount = "subRefundableTotalAmount".getBytes
+      val subRefundAmount = "subRefundAmount".getBytes
       val resultIterator = resultScanner.iterator()
       while (resultIterator.hasNext) {
         val result: Result = resultIterator.next()
         val refunds=new Refunds()
-        val cell1 = result.getColumnLatestCell(family_bytes, refundableAmount)
+        val cell1 = result.getColumnLatestCell(family_bytes, refundAmount)
         val cell2 = result.getColumnLatestCell(family_bytes, orderId)
         val cell3 = result.getColumnLatestCell(family_bytes, refundCreateTime)
         val cell4 = result.getColumnLatestCell(family_bytes, productId)
-        val cell5 = result.getColumnLatestCell(family_bytes, subRefundableTotalAmount)
-        refunds.setRefundableAmount(Bytes.toDouble(cell1.getValueArray))
+        val cell5 = result.getColumnLatestCell(family_bytes, subRefundAmount)
+        refunds.setRefundAmount(Bytes.toDouble(cell1.getValueArray))
         refunds.setOrderId(Bytes.toInt(cell2.getValueArray))
         refunds.setRefundCreateTime(Bytes.toString(cell3.getValueArray))
         refunds.setProductId(Bytes.toInt(cell4.getValueArray))
-        refunds.setSubRefundableTotalAmount(Bytes.toDouble(cell5.getValueArray))
+        refunds.setSubRefundAmount(Bytes.toDouble(cell5.getValueArray))
+        val row_key=Bytes.toString(result.getRow).split("_")
+        val eid=row_key(0).toInt
+        val refundId=row_key(1).toInt
+        val subRefundId=row_key(2).toInt
+        refunds.setEid(eid)
+        refunds.setRefundId(refundId)
+        refunds.setSubRefundId(subRefundId)
         refundsList+=refunds
       }
       Some(refundsList)
