@@ -108,7 +108,6 @@ object EnterpriseInfoJob {
       })
     //    PrintLog.log(" neweEnterpriseStaticRDD03 Count : " + neweEnterpriseStaticRDD03.count())
     val neweEnterpriseStaticRDD = neweEnterpriseStaticRDD03
-
       /**
         * 关联昨日最新的enterpriseStatic企业静态表，字段发生变化就进行数据版本新增
         */
