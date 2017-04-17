@@ -136,9 +136,15 @@ class CoreTests extends TestCase{
   def testBytes(): Unit ={
 //    Bytes
 //    println(Bytes.toDouble(Bytes.toBytesBinary("@\\xE0\\x91\\x18\\xA3\\xD7\\x0A=")))
-    println(Bytes.toDouble(Bytes.toBytesBinary("@\\x9F@\\x00\\x00\\x00\\x00\\x00")))
+    println(Bytes.toDouble(Bytes.toBytesBinary("@r\\xC0\\x00\\x00\\x00\\x00\\x00")))
   }
 
+  def testBytestoInt(): Unit ={
+//    println(Bytes.toInt(Bytes.toBytesBinary("\\x00\\x00\\x00\\x10")))
+    var a=1
+    a+=1
+    println(a)
+  }
   def testWhile(): Unit ={
     val list= ListBuffer()
     val option=new Some(list)

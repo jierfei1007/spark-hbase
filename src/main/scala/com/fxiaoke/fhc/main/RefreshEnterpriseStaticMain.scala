@@ -3,7 +3,7 @@ package com.fxiaoke.fhc.main
 import java.text.SimpleDateFormat
 import java.util.Calendar
 
-import com.fxiaoke.fhc.bean.EnterpriseStaticBean
+import com.fxiaoke.fhc.bean.{EnterpriseInfoStatic, EnterpriseStaticBean}
 import com.fxiaoke.fhc.context.HuijuContext
 import com.fxiaoke.fhc.job.EnterpriseInfoJob
 import com.fxiaoke.fhc.log.PrintLog
@@ -109,7 +109,8 @@ object RefreshEnterpriseStaticMain {
     /**
       * 从IBSS库里获取代理商信息
       */
-    val ibssVendorMap = IbssVendorSource.getIbssVendorRDD(propConfig, sparkContext).collect().toMap
+    val ibssVendorMap = IbssVendorSource.getOldIbssVendorRDD(huijuContext.hiveContext,runDate).collect().toMap
+//    val ibssVendorMap = IbssVendorSource.getIbssVendorRDD(propConfig, sparkContext).collect().toMap
 
     /**
       * 获取运算日期前一天的老的EnterpriseStatic信息
@@ -139,17 +140,20 @@ object RefreshEnterpriseStaticMain {
     /**
       * 主逻辑计算
       */
-    val enterpriseRDD:RDD[EnterpriseStaticBean]=EnterpriseInfoJob.getEnterpriseBaseInfo(enterpriseSourceRDD,broadcastEidList,enterpriseBlackRDD, ydayEnterpriseStaticRDD, ibssVendorMap,
-      sf3.format(runDate), sf3.format(ydayDate), enterpriseStaticDailyOutPutPath, enterpriseStaticOutPutPath,
-      industryMap, districtMap, agentEaMap,propConfig,sf.format(runDate))
+    val enterpriseRDD:RDD[EnterpriseInfoStatic]=EnterpriseInfoJob.getEnterpriseBaseInfo(enterpriseSourceRDD,broadcastEidList,enterpriseBlackRDD, ydayEnterpriseStaticRDD, ibssVendorMap,
+      sf3.format(runDate), sf3.format(ydayDate),industryMap, districtMap, agentEaMap,propConfig,sf.format(runDate))
+
     import huijuContext.hiveContext.implicits._
-    val enterpriseDataFrame=huijuContext.sqlContext.createDataFrame(enterpriseRDD,classOf[EnterpriseStaticBean])
-    HdfsHelper.saveAsParquet(enterpriseDataFrame,"/facishare-data/fscloud/dw_dim/dim_pub_enterprise_info_static_parquet",3)
-//    val loadEnterpriseStaticDailyDailySql = "alter table " + enterpriseStaticDailyTableName + " add if not exists " +
-//      "partition(dt='" + sf3.format(runDate) + "') " +
-//      "location '" + enterpriseStaticDailyOutPutPath + "'"
-//    println("loadEnterpriseStaticDailyDailySql : " + loadEnterpriseStaticDailyDailySql)
-//    huijuContext.hiveContext.sql(loadEnterpriseStaticDailyDailySql)
+    val enterpriseDataFrame=huijuContext.sqlContext.createDataFrame(enterpriseRDD,classOf[EnterpriseInfoStatic])
+    HdfsHelper.saveAsParquet(enterpriseDataFrame,enterpriseStaticOutPutPath,3)
+    HdfsHelper.delteIfExists(enterpriseStaticDailyOutPutPath)
+    HdfsHelper.mkdir(enterpriseStaticDailyOutPutPath)
+    HdfsHelper.cp(Array(enterpriseStaticOutPutPath+"/*"),enterpriseStaticDailyOutPutPath)
+    val loadEnterpriseStaticDailyDailySql = "alter table " + enterpriseStaticDailyTableName + " add if not exists " +
+      "partition(dt='" + sf3.format(runDate) + "') " +
+      "location '" + enterpriseStaticDailyOutPutPath + "'"
+    println("loadEnterpriseStaticDailyDailySql : " + loadEnterpriseStaticDailyDailySql)
+    huijuContext.hiveContext.sql(loadEnterpriseStaticDailyDailySql)
     huijuContext.stop()
   }
 }

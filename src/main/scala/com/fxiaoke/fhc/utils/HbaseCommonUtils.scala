@@ -6,10 +6,11 @@ import com.fxiaoke.fhc.bean.{Orders, Refunds}
 import org.apache.commons.lang.StringUtils
 import org.apache.hadoop.hbase.client.{Connection, ConnectionFactory, Result, Table}
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp
-import org.apache.hadoop.hbase.{HBaseConfiguration, HColumnDescriptor, HTableDescriptor, TableName}
+import org.apache.hadoop.hbase.{CellUtil, HBaseConfiguration, HColumnDescriptor, HTableDescriptor, TableName}
 import org.apache.hadoop.hbase.filter._
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.hadoop.hbase.client.Scan
+
 import scala.collection.mutable.ListBuffer
 
 /**
@@ -84,15 +85,16 @@ object HbaseCommonUtils {
     val orders = ListBuffer[Orders]()
     val filters = new util.ArrayList[org.apache.hadoop.hbase.filter.Filter]()
     try {
-      val scan = new org.apache.hadoop.hbase.client.Scan()
+      val scan = new org.apache.hadoop.hbase.client.Scan().setStartRow(Bytes.toBytes(eid+"--")).setStopRow(Bytes.toBytes(eid+"-:"))
+
       //row key filter
-      val rowFilter: Filter = new RowFilter(CompareFilter.CompareOp.EQUAL, new RegexStringComparator(eid + "-.*"))
-      filters.add(rowFilter)
+//      val rowFilter: Filter = new RowFilter(CompareFilter.CompareOp.EQUAL, new RegexStringComparator("^"+ eid + "-.*"))
+//      filters.add(rowFilter)
       //single column filter
       val singleColumnValueFilter = new SingleColumnValueFilter(Bytes.toBytes("order"), Bytes.toBytes("subOrderCreateTime"), CompareOp.LESS_OR_EQUAL, Bytes.toBytes(createDate))
       filters.add(singleColumnValueFilter)
-      val filterList = new FilterList(filters)
-      scan.setFilter(filterList)
+//      val filterList = new FilterList(filters)
+      scan.setFilter(singleColumnValueFilter)
       val resultScanner = table.getScanner(scan)
       val family_bytes = "order".getBytes
       val orderCreateTime_bytes = "orderCreateTime".getBytes
@@ -111,13 +113,13 @@ object HbaseCommonUtils {
         val cell4 = result.getColumnLatestCell(family_bytes, purchaseAmount_bytes)
         val cell5 = result.getColumnLatestCell(family_bytes, subOrderCreateTime_bytes)
         val cell6 = result.getColumnLatestCell(family_bytes, productEndTime_bytes)
-        order.setOrderCreateTime(Bytes.toString(cell1.getValueArray))
-        order.setTotalAmount(Bytes.toDouble(cell2.getValueArray))
-        order.setProductId(Bytes.toInt(cell3.getValueArray))
-        order.setPurchaseAmount(Bytes.toDouble(cell4.getValueArray))
-        order.setSubOrderCreateTime(Bytes.toString(cell5.getValueArray))
-        order.setProductEndTime(Bytes.toString(cell6.getValueArray))
-        val rowkey=Bytes.toString(result.getRow).split("_")
+        order.setOrderCreateTime(Bytes.toString(CellUtil.cloneValue(cell1)))
+        order.setTotalAmount(Bytes.toDouble(CellUtil.cloneValue(cell2)))
+        order.setPurchaseAmount(Bytes.toDouble(CellUtil.cloneValue(cell4)))
+        order.setProductId(Bytes.toInt(CellUtil.cloneValue(cell3)))
+        order.setSubOrderCreateTime(Bytes.toString(CellUtil.cloneValue(cell5)))
+        order.setProductEndTime(Bytes.toString(CellUtil.cloneValue(cell6)))
+        val rowkey=Bytes.toString(result.getRow).split("-")
         val eid=rowkey(0).toInt
         val orderId=rowkey(1).toInt
         val subOrder=rowkey(2).toInt
@@ -125,11 +127,12 @@ object HbaseCommonUtils {
         order.setOrderId(orderId)
         order.setSubOrderId(subOrder)
         orders += order
+//        println("eid:"+eid+" order=="+order.toString)
       }
       Some[ListBuffer[Orders]](orders)
     }catch{
       case e =>{
-        println("get orders by enterprise id: "+eid+" error "+e.getMessage)
+        println("get orders by enterprise id: "+eid+" error "+e)
         None
       }
     }
@@ -145,9 +148,10 @@ object HbaseCommonUtils {
     require(eid!=null,"eid is null")
     val refundsList = ListBuffer[Refunds]()
     try{
-      val scan = new Scan()
-      val rowFilter: Filter = new RowFilter(CompareFilter.CompareOp.EQUAL, new RegexStringComparator(eid + "-.*"))
-      scan.setFilter(rowFilter)
+//      val scan = new Scan()
+      val scan = new org.apache.hadoop.hbase.client.Scan().setStartRow(Bytes.toBytes(eid+"--")).setStopRow(Bytes.toBytes(eid+"-:"))
+//      val rowFilter: Filter = new RowFilter(CompareFilter.CompareOp.EQUAL, new RegexStringComparator("^"+ eid + "-.*"))
+//      scan.setFilter(rowFilter)
       val resultScanner = table.getScanner(scan)
       val family_bytes = "refund".getBytes
       val refundAmount = "refundAmount".getBytes
@@ -164,12 +168,12 @@ object HbaseCommonUtils {
         val cell3 = result.getColumnLatestCell(family_bytes, refundCreateTime)
         val cell4 = result.getColumnLatestCell(family_bytes, productId)
         val cell5 = result.getColumnLatestCell(family_bytes, subRefundAmount)
-        refunds.setRefundAmount(Bytes.toDouble(cell1.getValueArray))
-        refunds.setOrderId(Bytes.toInt(cell2.getValueArray))
-        refunds.setRefundCreateTime(Bytes.toString(cell3.getValueArray))
-        refunds.setProductId(Bytes.toInt(cell4.getValueArray))
-        refunds.setSubRefundAmount(Bytes.toDouble(cell5.getValueArray))
-        val row_key=Bytes.toString(result.getRow).split("_")
+        refunds.setRefundAmount(Bytes.toDouble(CellUtil.cloneValue(cell1)))
+        refunds.setOrderId(Bytes.toInt(CellUtil.cloneValue(cell2)))
+        refunds.setRefundCreateTime(Bytes.toString(CellUtil.cloneValue(cell3)))
+        refunds.setProductId(Bytes.toInt(CellUtil.cloneValue(cell4)))
+        refunds.setSubRefundAmount(Bytes.toDouble(CellUtil.cloneValue(cell5)))
+        val row_key=Bytes.toString(result.getRow).split("-")
         val eid=row_key(0).toInt
         val refundId=row_key(1).toInt
         val subRefundId=row_key(2).toInt

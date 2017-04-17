@@ -25,7 +25,9 @@ object EnterpriseOrderSource {
                      case when A.order_create_time is null then '1970-01-01 00:00:00' else cast(A.order_create_time as string) end as order_create_time,
                      B.product_id as product_id,
                      B.purchase_amount as purchase_amount,
-                     case when B.create_time is null then '1970-01-01 00:00:00' else cast(B.create_time as string) end as sub_order_create_time,
+                     case when B.create_time is null and A.order_create_time is not null then cast(A.order_create_time as string)
+                          when B.create_time is null and A.order_create_time is null then '1970-01-01 00:00:00'
+                          else cast(B.create_time as string) end as sub_order_create_time,
                      case when B.product_end_time is null then '1970-01-01 00:00:00' else cast(B.product_end_time as string) end as product_end_time
                      from dw_bds_b.b_pub_hjodr_order A,dw_bds_b.b_pub_hjodr_sub_order B where A.id=B.order_id and A.is_delete=0 and B.is_delete=0 """
     println("exec sql:"+sql)
