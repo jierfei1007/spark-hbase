@@ -35,7 +35,7 @@ object EnterpriseInfoJob {
     * @return
     */
   def getEnterpriseBaseInfo(enterpriseSourceRDD: RDD[EnterpriseBean],
-                            enterpriseIdBroadcast: Broadcast[Array[Int]],
+                            enterpriseIdBroadcast: Broadcast[Set[String]],
                             enterpriseBlackRDD: RDD[(Int, Int)],
                             enterpriseStaticRDD: RDD[EnterpriseInfoStatic],
                             ibssVendorMap: Map[Int, String],
@@ -56,7 +56,8 @@ object EnterpriseInfoJob {
       while (itor.hasNext) {
         val enterpriseBean = itor.next()
         val eid = enterpriseBean.getEnterpriseId
-        if (enterpriseIdBroadcast.value.contains(eid)) {
+        val ea = enterpriseBean.getEnterpriseAccount
+        if (enterpriseIdBroadcast.value.contains(ea)) {
           val start=System.currentTimeMillis()
           val ordersListBuffer = HbaseCommonUtils.scanEnterpriseOrdersByCreateDate(orderTable, eid, checkOrderDate + " " + "23:59:59")
           if(print_times<=10){

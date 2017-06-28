@@ -153,4 +153,23 @@ class CoreTests extends TestCase{
     println(l.size)
 
   }
+
+  def testSet(): Unit ={
+    val set=Set("a","b","c")
+    println(set.contains("b"))
+    println(set.contains("d"))
+  }
+
+  def testThrowException(): Unit ={
+    try{
+      println("run try catch!")
+      throw new RuntimeException("error")
+    }catch{
+      case e:Exception=>{
+        throw new RuntimeException("throw error"+e.getMessage)
+      }
+    }finally {
+        println("finally")
+    }
+  }
 }

@@ -90,8 +90,8 @@ object RefreshEnterpriseStaticMain {
       */
     val enterpriseSourceRDD = SourceEnterpriseSource.getSourceEnterpriseRDD(sparkContext, enterpriseSourcePath)
     //获取历史所有下单企业
-    val enterpriseIdRDD=EnterpriseOrderSource.createEidRDD(huijuContext.hiveContext,sf.format(runDate))
-    val broadcastEidList=sparkContext.broadcast(enterpriseIdRDD.collect())
+    val enterpriseIdRDD=EnterpriseOrderSource.createEaRDD(huijuContext.hiveContext,sf.format(runDate))
+    val broadcastEidList=sparkContext.broadcast(enterpriseIdRDD.collect().toSet)
     //    /**
     //      * 从hive表获取企业类型DF
     //      */

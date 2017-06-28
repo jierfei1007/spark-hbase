@@ -1,5 +1,7 @@
 package com.fxiaoke.fhc.test;
 
+import java.sql.Timestamp
+
 import com.fxiaoke.fhc.bean.Orders
 import junit.framework.TestCase
 
@@ -22,6 +24,12 @@ class TestStatic extends TestCase{
  }
 
   def testOption(): Unit ={
+    val a="20170611"
+    val b="20170601"
+    println(a>=b)
+  }
+
+  def testTimeStamp(): Unit ={
 
   }
 }

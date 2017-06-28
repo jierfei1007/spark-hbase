@@ -63,7 +63,22 @@ object EnterpriseOrderSource {
     })
     rdd
   }
-
+  /**
+    * 获取所有购买订单的企业账号
+    * @param hiveContext
+    * @return
+    */
+  def createEaRDD(hiveContext: HiveContext,runDate:String):RDD[String]={
+    val sql:String ="select "+
+      " distinct A.enterprise_account as ea "+
+      " from dw_bds_b.b_pub_hjodr_order A where  A.is_delete=0 and A.order_create_time <= '"+runDate+" 23:59:59.0'"
+    println("exec:"+sql)
+    val df=hiveContext.sql(sql)
+    val rdd=df.map(row=>{
+      row.getAs[String]("ea")
+    })
+    rdd
+  }
   /**
     * 获取退款单
     * @param hiveContext
